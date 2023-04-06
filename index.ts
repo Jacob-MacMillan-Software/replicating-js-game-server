@@ -5,14 +5,18 @@ const wss = new WebSocketServer({port: 3000});
 const clients = {};
 const lastLocation = {};
 
-function updateAllClients(message: string) {
+const playerSpeed = 300;
+
+function updateAllClients(message: string, excludeClient: string | undefined = undefined) {
   console.log(`Broadcasting message: ${message}`);
 
   // Loop through all clients and send message
   // @ts-ignore
   for (const clientId in clients) {
-    // @ts-ignore
-    clients[clientId].send(message);
+    if (clientId !== excludeClient) {
+      // @ts-ignore
+      clients[clientId].send(message);
+    }
   }
 }
 
@@ -49,6 +53,8 @@ wss.on('connection', (ws: WebSocket) => {
       updateAllClients(`${clientId}:position:${parsedMessage[0]},${parsedMessage[1]}`);
 
       console.log(lastLocation);
+    } else if(req === 'moving') {
+      updateAllClients(`${clientId}:moving:${message}`, clientId);
     } else if(req === "getPlayer") {
       if(message === 'all') {
         // @ts-ignore
@@ -95,6 +101,8 @@ wss.on('connection', (ws: WebSocket) => {
   for (const otherClientId in clients) {
     if (otherClientId !== clientId) {
       ws.send(`connected:${otherClientId}`);
+      // @ts-ignore
+      ws.send(`${otherClientId}:position:${lastLocation[otherClientId].x},${lastLocation[otherClientId].y}`);
     }
   }
 

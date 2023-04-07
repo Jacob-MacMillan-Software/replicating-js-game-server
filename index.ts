@@ -2,8 +2,28 @@ import WebSocket, { WebSocketServer } from 'ws';
 
 const wss = new WebSocketServer({port: 3000});
 
-const clients = {};
-const lastLocation = {};
+interface IClients {
+  [key: string]: WebSocket;
+}
+
+interface ILocations {
+  [key: string]: {
+    x: number;
+    y: number;
+  };
+}
+
+interface IEnemies {
+  [key: string]: {
+    health: number;
+    nextDamageDealt: number;
+    nextDamageTaken: number;
+  };
+}
+
+const clients: IClients = {};
+const lastLocation: ILocations = {};
+const enemies: IEnemies = {};
 
 const playerSpeed = 300;
 
@@ -11,10 +31,8 @@ function updateAllClients(message: string, excludeClient: string | undefined = u
   console.log(`Broadcasting message: ${message}`);
 
   // Loop through all clients and send message
-  // @ts-ignore
   for (const clientId in clients) {
     if (clientId !== excludeClient) {
-      // @ts-ignore
       clients[clientId].send(message);
     }
   }
@@ -23,12 +41,10 @@ function updateAllClients(message: string, excludeClient: string | undefined = u
 wss.on('connection', (ws: WebSocket) => {
   // generate client ID
   const clientId = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  // @ts-ignore
   lastLocation[clientId] = {x: 0, y: 0};
 
   // add client to clients object
   // idk how to define the type
-  // @ts-ignore
   clients[clientId] = ws;
 
   ws.on('message', (rawMessage: string) => {
@@ -45,9 +61,7 @@ wss.on('connection', (ws: WebSocket) => {
 
       // TODO: check if the player can actually walk there
       // for now just assume they can
-      // @ts-ignore
       lastLocation[clientId].x = parsedMessage[0];
-      // @ts-ignore
       lastLocation[clientId].y = parsedMessage[1];
 
       updateAllClients(`${clientId}:position:${parsedMessage[0]},${parsedMessage[1]}`, clientId);
@@ -57,20 +71,33 @@ wss.on('connection', (ws: WebSocket) => {
       updateAllClients(`${clientId}:moving:${message}`, clientId);
     } else if(req === "getPlayer") {
       if(message === 'all') {
-        // @ts-ignore
         for (const otherClientId in clients) {
           if(otherClientId !== clientId) {
-            // @ts-ignore
             ws.send(`connected:${otherClientId}`);
-            // @ts-ignore
             ws.send(`${otherClientId}:position:${lastLocation[otherClientId].x},${lastLocation[otherClientId].y}`);
           }
         }
       } else {
-        // @ts-ignore
         ws.send(`connected:${message}`);
-        // @ts-ignore
         ws.send(`${clientId}:position:${lastLocation[message].x},${lastLocation[message].y}`);
+      }
+    } else if(req === "health") {
+      if(!enemies[message]) {
+        enemies[message] = {
+          health: 370,
+          nextDamageDealt: Math.random() * 230,
+          nextDamageTaken: Math.random() * 230,
+        };
+      }
+      
+      ws.send(`health:${message}:${enemies[message].health},${enemies[message].nextDamageDealt},${enemies[message].nextDamageTaken}`);
+    } else if(req === "damage") {
+      if (enemies[message]) {
+        enemies[message].health -= enemies[message].nextDamageTaken;
+        enemies[message].nextDamageTaken = Math.random() * 230;
+        enemies[message].nextDamageDealt = Math.random() * 230;
+        
+        ws.send(`health:${message}:${enemies[message].health},${enemies[message].nextDamageDealt},${enemies[message].nextDamageTaken}`);
       }
     }
 
@@ -78,7 +105,6 @@ wss.on('connection', (ws: WebSocket) => {
 
   ws.on('error', (error: Error) => {
     console.error(error);
-    // @ts-ignore
     delete clients[clientId];
 
     // Notify all clients of disconnection
@@ -87,7 +113,6 @@ wss.on('connection', (ws: WebSocket) => {
 
   ws.on('close', () => {
     console.log(`Client ${clientId} disconnected`);
-    // @ts-ignore
     delete clients[clientId];
 
     // Notify all clients of disconnection
@@ -97,11 +122,9 @@ wss.on('connection', (ws: WebSocket) => {
   ws.send(`id:${clientId}`);
 
   // Notify client of all other clients
-  // @ts-ignore
   for (const otherClientId in clients) {
     if (otherClientId !== clientId) {
       ws.send(`connected:${otherClientId}`);
-      // @ts-ignore
       ws.send(`${otherClientId}:position:${lastLocation[otherClientId].x},${lastLocation[otherClientId].y}`);
     }
   }

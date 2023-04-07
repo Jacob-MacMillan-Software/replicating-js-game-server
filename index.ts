@@ -50,7 +50,7 @@ wss.on('connection', (ws: WebSocket) => {
       // @ts-ignore
       lastLocation[clientId].y = parsedMessage[1];
 
-      updateAllClients(`${clientId}:position:${parsedMessage[0]},${parsedMessage[1]}`);
+      updateAllClients(`${clientId}:position:${parsedMessage[0]},${parsedMessage[1]}`, clientId);
 
       console.log(lastLocation);
     } else if(req === 'moving') {
